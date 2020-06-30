@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="3ed820da-cee8-40c7-be6f-0ad15e5dd572" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="380b310b-05b7-4a08-8bd5-29737d5af69a" >
+		<db:my-sql-connection host="localhost" port="3306" user="root" password="pramati" database="day7" />
+	</db:config>
+	<file:config name="File_Config" doc:name="File Config" doc:id="61d1606a-3ff1-4bbe-827a-c083c195f03b" >
+		<file:connection workingDir="/home/sairaghav/AnypointStudio/studio-workspace/mule/input" />
+	</file:config>
+	<file:config name="File_Config1" doc:name="File Config" doc:id="d34d7ef1-561e-4ced-a452-70bde61dda13" >
+		<file:connection workingDir="/home/sairaghav/AnypointStudio/studio-workspace/mule/day7/input" />
+	</file:config>
+	<flow name="errorcontinue_propogateFlow" doc:id="2ab4030e-2b02-4492-b77e-8eea6c206481" >
+		<http:listener doc:name="Listener" doc:id="0dc8c16b-bb3e-4252-ba4d-a44346568f83" config-ref="HTTP_Listener_config" path="/on-error-continue-propogate"/>
+		<flow-ref doc:name="Flow Reference" doc:id="c5ae2ee1-9249-4400-9633-12b205707480" name="on_error_continue"/>
+		<logger level="INFO" doc:name="Logger" doc:id="bd9205e8-f77d-40ad-9204-b845016537b4" message="flow 1 completed" />
+		<flow-ref doc:name="Flow Reference" doc:id="8bc75fed-85cb-433e-acb6-0a533cac53c5" name="on_error_propogate_flow"/>
+		<logger level="INFO" doc:name="Logger" doc:id="46258dc4-1166-439d-9b55-1249dff3cab6" message="flow 2 completed"/>
+		<error-handler>
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="859b2564-5bd6-4400-87fa-8dc1657fa1db" type="ANY">
+				<ee:transform doc:name="Transform Message" doc:id="6a877d0e-c7d6-44d5-9b06-df4bd35f271d" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message : "On Error Continue"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-continue>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="080c129d-239a-473e-8fbe-7cc40e216442" type="ANY">
+				<ee:transform doc:name="Transform Message" doc:id="19b86ce6-c25f-44a6-b200-b2f63ca2d883">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message: "DB Service unavailable"
+}
+]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="on_error_continue" doc:id="fbbe8130-7e4b-43c4-902b-4e375b7551eb" >
+		<file:read doc:name="Read" doc:id="c530aa89-10d4-4481-a16f-dc9c6bf51d97" config-ref="File_Config" path="/home/sairaghav/AnypointStudio/studio-workspace/mule/input/test.csv"/>
+		<file:write doc:name="Write" doc:id="65daf2eb-e9b9-44b9-96e6-eaccbd5f092f" config-ref="File_Config1" path="/home/sairaghav/AnypointStudio/studio-workspace/mule/day7/output/copy-test.csv"/>
+		<error-handler >
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="4d695e57-7b5d-43cf-bc47-3def1bc682ca" type="ANY">
+				<logger level="INFO" doc:name="Logger" doc:id="0e16155f-2645-430d-9e16-3e9163ed686a" message="File not found - skipping - on error on continue"/>
+				<ee:transform doc:name="Transform Message" doc:id="ba95a30b-14ce-4c2a-8718-2dea0faf7ce5">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message:"on error continue"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+			</on-error-continue>
+		</error-handler>
+	</flow>
+	<flow name="on_error_propogate_flow" doc:id="2a2f8313-e952-4063-a5af-61c2218e80d6" >
+		<file:read doc:name="Read" doc:id="14c88614-5111-4d02-a7b2-b93d99a0cb6a" path="/home/sairaghav/AnypointStudio/studio-workspace/mule/day7/input/employees.json" config-ref="File_Config" />
+		<foreach doc:name="For Each" doc:id="d0481d56-a5fb-445e-be20-4c282708a2b1" collection="#[payload]">
+			<db:insert doc:name="Insert" doc:id="606f9817-a408-4f1f-ae50-1639679641ab" config-ref="Database_Config">
+			<db:sql><![CDATA[INSERT INTO day7.EmployeeInfo1(`Id`,`Name`,`Department`,`Designation`)
+VALUES (:id,:name,:department,:designation)]]></db:sql>
+			<db:input-parameters><![CDATA[#[{id:payload.Id,name:payload.Name,department:payload.DepartmentName,designation:payload.Designation}]]]></db:input-parameters>
+		</db:insert>
+		</foreach>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="a6c09670-3b66-4b50-a284-be6f329381f8" type="ANY">
+				<ee:transform doc:name="Transform Message" doc:id="46d0d9ab-1be6-4f5c-81f7-2f207a67fac6" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message:"error in flow 2"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+</mule>
